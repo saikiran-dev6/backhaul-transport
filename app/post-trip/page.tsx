@@ -1,0 +1,2 @@
+import { PostTripForm } from "@/components/PostTripForm";
+export default function PostTrip(){return <div className="page-shell section-pad"><div className="mb-9 max-w-3xl"><span className="eyebrow">Backhaul Captain</span><h1 className="display-title">Post any return route.</h1><p className="body-copy mt-4">Approved Captains can choose any map endpoints. Distance and duration are calculated from coordinates and stored with the trip.</p></div><PostTripForm/></div>}

@@ -1,0 +1,7 @@
+import Link from "next/link";
+import type { LucideIcon } from "lucide-react";
+import { ArrowRight, CheckCircle2 } from "lucide-react";
+
+export function PublicPage({ eyebrow, title, copy, cta, ctaHref, icon: Icon, features }: { eyebrow: string; title: string; copy: string; cta: string; ctaHref: string; icon: LucideIcon; features: Array<{ title: string; copy: string }> }) {
+  return <><section className="bg-gradient-to-br from-brand-50 via-white to-eco-50"><div className="page-shell grid items-center gap-10 py-20 lg:grid-cols-[1fr_.7fr]"><div><span className="eyebrow">{eyebrow}</span><h1 className="display-title">{title}</h1><p className="body-copy mt-5 max-w-2xl">{copy}</p><Link className="btn-primary mt-8" href={ctaHref}>{cta} <ArrowRight className="h-4 w-4" /></Link></div><div className="mx-auto grid h-64 w-full max-w-md place-items-center rounded-[3rem] border border-white bg-white/70 shadow-soft"><span className="grid h-28 w-28 place-items-center rounded-[2rem] bg-brand-600 text-white"><Icon className="h-14 w-14" /></span></div></div></section><section className="section-pad"><div className="page-shell"><div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{features.map((feature) => <article className="card" key={feature.title}><CheckCircle2 className="mb-5 h-7 w-7 text-eco-600" /><h2 className="text-xl font-black">{feature.title}</h2><p className="mt-2 leading-7 text-slate-600">{feature.copy}</p></article>)}</div></div></section></>;
+}

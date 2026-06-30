@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600" role="img" aria-label="Backhaul Captain placeholder">
+  <rect width="900" height="600" rx="48" fill="#fff7e6"/>
+  <circle cx="450" cy="205" r="96" fill="#0d6fc2"/>
+  <circle cx="450" cy="170" r="48" fill="#f8fafc"/>
+  <path d="M292 465 C315 365 376 310 450 310 C524 310 585 365 608 465 Z" fill="#0f2742"/>
+  <path d="M285 150 H615" stroke="#ffb52e" stroke-width="30" stroke-linecap="round"/>
+  <path d="M290 462 H610" stroke="#20a96b" stroke-width="18" stroke-linecap="round"/>
+</svg>

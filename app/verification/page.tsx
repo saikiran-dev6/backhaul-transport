@@ -1,0 +1,2 @@
+import { VerificationCenter } from "@/components/VerificationCenter";
+export default function Verification(){return <div className="page-shell section-pad"><div className="mb-9"><span className="eyebrow">Captain onboarding</span><h1 className="display-title">Vehicle & document verification.</h1><p className="body-copy mt-4 max-w-3xl">Control Hub reviews Captain, vehicle and document records independently. Only approved Captains with approved vehicles can publish trips.</p></div><VerificationCenter/></div>}

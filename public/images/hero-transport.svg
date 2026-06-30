@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img" aria-label="Highway logistics illustration placeholder">
+  <defs>
+    <linearGradient id="sky" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#0d6fc2"/>
+      <stop offset="1" stop-color="#113a5c"/>
+    </linearGradient>
+    <linearGradient id="road" x1="0" x2="1">
+      <stop offset="0" stop-color="#233b56"/>
+      <stop offset="1" stop-color="#0f2742"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#sky)"/>
+  <circle cx="1320" cy="160" r="110" fill="#ffb52e" opacity=".75"/>
+  <path d="M0 675 C300 585 520 610 760 680 C1040 762 1260 715 1600 620 L1600 1000 L0 1000 Z" fill="#163a57" opacity=".85"/>
+  <path d="M-120 1040 C260 760 540 660 860 654 C1130 650 1340 735 1740 980 L-120 1040 Z" fill="url(#road)"/>
+  <path d="M770 668 C680 760 610 860 540 1000" fill="none" stroke="#f8fafc" stroke-width="10" stroke-dasharray="55 42" opacity=".75"/>
+  <path d="M945 670 C1060 770 1170 880 1320 1000" fill="none" stroke="#f8fafc" stroke-width="10" stroke-dasharray="55 42" opacity=".75"/>
+  <g transform="translate(980 560)">
+    <rect x="0" y="70" width="270" height="95" rx="20" fill="#f8fafc"/>
+    <rect x="188" y="20" width="132" height="145" rx="20" fill="#d9edff"/>
+    <rect x="215" y="48" width="70" height="42" rx="8" fill="#0d6fc2"/>
+    <circle cx="62" cy="178" r="28" fill="#0f2742"/>
+    <circle cx="255" cy="178" r="28" fill="#0f2742"/>
+    <rect x="25" y="96" width="125" height="38" rx="8" fill="#20a96b" opacity=".55"/>
+  </g>
+  <g transform="translate(285 610)">
+    <rect x="0" y="40" width="205" height="82" rx="22" fill="#ffb52e"/>
+    <rect x="135" y="0" width="96" height="122" rx="22" fill="#eef7ff"/>
+    <rect x="158" y="25" width="42" height="34" rx="8" fill="#1783dd"/>
+    <circle cx="48" cy="135" r="24" fill="#0f2742"/>
+    <circle cx="178" cy="135" r="24" fill="#0f2742"/>
+  </g>
+  <path d="M180 385 C390 250 580 290 760 390 C960 500 1160 490 1390 330" fill="none" stroke="#cef8e2" stroke-width="12" stroke-linecap="round" stroke-dasharray="2 34" opacity=".85"/>
+  <circle cx="180" cy="385" r="18" fill="#20a96b"/>
+  <circle cx="1390" cy="330" r="18" fill="#ffb52e"/>
+</svg>

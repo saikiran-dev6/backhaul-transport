@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600" role="img" aria-label="Passenger ride placeholder">
+  <rect width="900" height="600" rx="48" fill="#eef7ff"/>
+  <circle cx="700" cy="120" r="70" fill="#ffb52e" opacity=".8"/>
+  <path d="M80 430 H820" stroke="#0f2742" stroke-width="24" stroke-linecap="round"/>
+  <g transform="translate(210 230)">
+    <rect x="0" y="90" width="360" height="110" rx="34" fill="#1783dd"/>
+    <rect x="250" y="35" width="145" height="165" rx="34" fill="#d9edff"/>
+    <rect x="278" y="66" width="76" height="48" rx="12" fill="#0d6fc2"/>
+    <circle cx="84" cy="216" r="36" fill="#0f2742"/>
+    <circle cx="312" cy="216" r="36" fill="#0f2742"/>
+    <circle cx="102" cy="120" r="28" fill="#f8fafc"/>
+    <circle cx="165" cy="120" r="28" fill="#f8fafc"/>
+  </g>
+</svg>

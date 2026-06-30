@@ -1,0 +1,26 @@
+@import "leaflet/dist/leaflet.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; color: #0f2742; background: #fbfdff; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+button, input, select, textarea { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+.page-shell { @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8; }
+.section-pad { @apply py-16 sm:py-20 lg:py-24; }
+.eyebrow { @apply mb-3 inline-flex items-center gap-2 rounded-full border border-brand-100 bg-brand-50 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.18em] text-brand-700; }
+.display-title { @apply text-4xl font-black tracking-[-0.04em] text-ink sm:text-5xl lg:text-6xl; }
+.section-title { @apply text-3xl font-black tracking-[-0.035em] text-ink sm:text-4xl; }
+.body-copy { @apply text-base leading-7 text-slate-600 sm:text-lg; }
+.card { @apply rounded-3xl border border-slate-200/80 bg-white p-5 shadow-soft sm:p-6; }
+.btn-primary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-brand-600/20 transition hover:-translate-y-0.5 hover:bg-brand-700 focus:outline-none focus:ring-4 focus:ring-brand-100 disabled:cursor-not-allowed disabled:opacity-60; }
+.btn-secondary { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-ink transition hover:border-brand-200 hover:bg-brand-50 focus:outline-none focus:ring-4 focus:ring-brand-100 disabled:cursor-not-allowed disabled:opacity-60; }
+.btn-accent { @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-sun-400 px-5 py-3 text-sm font-black text-ink shadow-lg shadow-sun-400/20 transition hover:-translate-y-0.5 hover:bg-sun-500; }
+.field { @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-ink outline-none transition placeholder:text-slate-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-100; }
+.label { @apply mb-1.5 block text-sm font-bold text-slate-700; }
+.leaflet-container { min-height: 360px; height: 100%; width: 100%; font-family: inherit; }
+@keyframes pulse-soft { 0%,100% { transform: scale(1); opacity:.8 } 50% { transform: scale(1.35); opacity:.2 } }
+.tracking-pulse { animation: pulse-soft 1.8s ease-in-out infinite; }

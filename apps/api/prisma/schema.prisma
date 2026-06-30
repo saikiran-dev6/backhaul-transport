@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ROUTEMATE
+  LOADMATE
+  CAPTAIN
+  MERCHANT
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(cuid())
+  fullName     String
+  username     String   @unique
+  phone        String   @unique
+  email        String   @unique
+  passwordHash String
+  role         Role
+  roles        Role[]   @default([])
+  createdAt    DateTime @default(now())
+
+  driverProfile     DriverProfile?
+  passengerBookings PassengerBooking[]
+}
+
+model DriverProfile {
+  id                 String       @id @default(cuid())
+  userId             String       @unique
+  verificationStatus String       @default("PENDING")
+  rating             Float        @default(5)
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trips              ReturnTrip[]
+}
+
+model ReturnTrip {
+  id                       String   @id @default(cuid())
+  driverId                 String
+  fromLocationName         String
+  fromLat                  Float
+  fromLng                  Float
+  fromGeo                  Unsupported("geography(Point,4326)")?
+  toLocationName           String
+  toLat                    Float
+  toLng                    Float
+  toGeo                    Unsupported("geography(Point,4326)")?
+  departureTime            DateTime
+  availableSeats           Int      @default(0)
+  availableGoodsCapacityKg Float    @default(0)
+  maxDetourKm              Float    @default(10)
+  isLookingForPassengers   Boolean  @default(true)
+  status                   String   @default("ACTIVE")
+  driver                   DriverProfile @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  passengerBookings        PassengerBooking[]
+
+  @@index([status, departureTime])
+}
+
+model PassengerBooking {
+  id                  String   @id @default(cuid())
+  tripId              String
+  passengerId         String
+  pickupName          String
+  pickupLat           Float
+  pickupLng           Float
+  pickupGeo           Unsupported("geography(Point,4326)")?
+  dropName            String
+  dropLat             Float
+  dropLng             Float
+  dropGeo             Unsupported("geography(Point,4326)")?
+  seatsBooked         Int
+  fare                Float
+  isLookingForRide    Boolean  @default(true)
+  bookingStatus       String   @default("REQUESTED")
+  createdAt           DateTime @default(now())
+  trip                ReturnTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  passenger           User       @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+
+  @@index([passengerId, createdAt])
+}

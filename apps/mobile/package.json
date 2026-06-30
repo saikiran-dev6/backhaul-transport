@@ -1,0 +1,18 @@
+{
+  "name": "@backhaul/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "dev": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios"
+  },
+  "dependencies": {
+    "expo": "~51.0.0",
+    "expo-location": "~17.0.1",
+    "react": "18.3.1",
+    "react-native": "0.74.0",
+    "socket.io-client": "4.7.5"
+  }
+}

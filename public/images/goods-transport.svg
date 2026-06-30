@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600" role="img" aria-label="Goods transport placeholder">
+  <rect width="900" height="600" rx="48" fill="#edfff6"/>
+  <path d="M70 430 H830" stroke="#0f2742" stroke-width="24" stroke-linecap="round"/>
+  <g transform="translate(170 225)">
+    <rect x="0" y="85" width="345" height="130" rx="22" fill="#20a96b"/>
+    <rect x="245" y="30" width="170" height="185" rx="24" fill="#cef8e2"/>
+    <rect x="282" y="63" width="76" height="50" rx="12" fill="#168c57"/>
+    <rect x="45" y="115" width="68" height="65" rx="10" fill="#ffb52e"/>
+    <rect x="130" y="105" width="72" height="75" rx="10" fill="#f8fafc"/>
+    <circle cx="78" cy="232" r="36" fill="#0f2742"/>
+    <circle cx="335" cy="232" r="36" fill="#0f2742"/>
+  </g>
+</svg>

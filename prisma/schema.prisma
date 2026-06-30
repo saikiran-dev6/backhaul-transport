@@ -1,0 +1,229 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String             @id @default(cuid())
+  fullName          String
+  username          String             @unique
+  phone             String             @unique
+  email             String             @unique
+  passwordHash      String
+  role              String
+  roles             String             @default("[]")
+  language          String             @default("en")
+  otpVerified       Boolean            @default(false)
+  otpCode           String?
+  otpExpiresAt      DateTime?
+  createdAt         DateTime           @default(now())
+  driverProfile     DriverProfile?
+  passengerBookings PassengerBooking[]
+  goodsRequests     GoodsRequest[]
+  ratingsGiven      Rating[]           @relation("RatingFrom")
+  ratingsReceived   Rating[]           @relation("RatingTo")
+  complaints        Complaint[]
+
+  @@index([role])
+}
+
+model DriverProfile {
+  id                 String           @id @default(cuid())
+  userId             String           @unique
+  licenseNumber      String?
+  profilePhoto       String?
+  verificationStatus String           @default("PENDING")
+  rating             Float            @default(5)
+  totalTrips         Int              @default(0)
+  emergencyContact   String?
+  bankUpiDetails     String?
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicles           Vehicle[]
+  documents          DriverDocument[]
+  trips              ReturnTrip[]
+}
+
+model Vehicle {
+  id                 String           @id @default(cuid())
+  driverId           String
+  vehicleNumber      String           @unique
+  vehicleType        String
+  permitType         String
+  passengerCapacity  Int              @default(0)
+  goodsCapacityKg    Float            @default(0)
+  fuelType           String           @default("PETROL")
+  mileageKmPerLiter  Float            @default(15)
+  insuranceStatus    String           @default("PENDING")
+  pucStatus          String           @default("PENDING")
+  fitnessStatus      String           @default("PENDING")
+  verificationStatus String           @default("PENDING")
+  driver             DriverProfile    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  documents          DriverDocument[]
+  trips              ReturnTrip[]
+}
+
+model DriverDocument {
+  id              String        @id @default(cuid())
+  driverId        String
+  vehicleId       String?
+  documentType    String
+  fileUrl         String
+  status          String        @default("PENDING")
+  rejectionReason String?
+  driver          DriverProfile @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle         Vehicle?      @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  createdAt       DateTime      @default(now())
+}
+
+model ReturnTrip {
+  id                       String             @id @default(cuid())
+  driverId                 String
+  vehicleId                String
+  fromLocationName         String
+  fromLat                  Float
+  fromLng                  Float
+  toLocationName           String
+  toLat                    Float
+  toLng                    Float
+  routeDistanceKm          Float
+  estimatedDurationMin     Int
+  routePolyline            String?
+  departureTime            DateTime
+  availableSeats           Int                @default(0)
+  availableGoodsCapacityKg Float              @default(0)
+  maxDetourKm              Float              @default(10)
+  allowedPickupPoints      String             @default("[]")
+  allowedDropPoints        String             @default("[]")
+  allowedGoodsTypes        String             @default("[]")
+  fixedBasePrice           Float              @default(0)
+  isLookingForPassengers   Boolean            @default(true)
+  status                   String             @default("ACTIVE")
+  createdAt                DateTime           @default(now())
+  driver                   DriverProfile      @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle                  Vehicle            @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  passengerBookings        PassengerBooking[]
+  goodsBookings            GoodsBooking[]
+  ratings                  Rating[]
+  complaints               Complaint[]
+
+  @@index([status, departureTime])
+}
+
+model PassengerBooking {
+  id            String   @id @default(cuid())
+  tripId        String
+  passengerId   String
+  seatsBooked   Int
+  pickupName    String
+  pickupLat     Float
+  pickupLng     Float
+  dropName      String
+  dropLat       Float
+  dropLng       Float
+  fare          Float
+  pickupOtp     String
+  bookingStatus String   @default("CONFIRMED")
+  paymentStatus String   @default("PENDING")
+  isLookingForRide Boolean @default(true)
+  createdAt     DateTime @default(now())
+  trip          ReturnTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  passenger     User       @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+
+  @@index([passengerId, createdAt])
+}
+
+model GoodsRequest {
+  id                  String         @id @default(cuid())
+  senderId            String
+  pickupName          String
+  pickupLat           Float
+  pickupLng           Float
+  dropName            String
+  dropLat             Float
+  dropLng             Float
+  goodsType           String
+  weightKg            Float
+  quantity            Int
+  sizeDescription     String
+  imageUrl            String?
+  isFragile           Boolean        @default(false)
+  requiresColdStorage Boolean        @default(false)
+  isHeavy             Boolean        @default(false)
+  status              String         @default("OPEN")
+  createdAt           DateTime       @default(now())
+  sender              User           @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  bookings            GoodsBooking[]
+}
+
+model GoodsBooking {
+  id                String       @id @default(cuid())
+  goodsRequestId    String
+  tripId            String
+  price             Float
+  pickupOtp         String
+  deliveryOtp       String
+  pickupStatus      String       @default("PENDING")
+  deliveryStatus    String       @default("PENDING")
+  deliveryProofUrl  String?
+  createdAt         DateTime     @default(now())
+  goodsRequest      GoodsRequest @relation(fields: [goodsRequestId], references: [id], onDelete: Cascade)
+  trip              ReturnTrip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, createdAt])
+}
+
+model Payment {
+  id            String   @id @default(cuid())
+  bookingId     String
+  bookingType   String
+  amount        Float
+  platformFee   Float
+  driverEarning Float
+  method        String
+  status        String   @default("PENDING")
+  createdAt     DateTime @default(now())
+
+  @@index([bookingId, bookingType])
+}
+
+model Rating {
+  id         String     @id @default(cuid())
+  fromUserId String
+  toUserId   String
+  tripId     String
+  rating     Int
+  comment    String?
+  createdAt  DateTime   @default(now())
+  fromUser   User       @relation("RatingFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser     User       @relation("RatingTo", fields: [toUserId], references: [id], onDelete: Cascade)
+  trip       ReturnTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+}
+
+model Complaint {
+  id            String     @id @default(cuid())
+  userId        String
+  tripId        String?
+  complaintType String
+  description   String
+  status        String     @default("OPEN")
+  createdAt     DateTime   @default(now())
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trip          ReturnTrip? @relation(fields: [tripId], references: [id], onDelete: SetNull)
+}
+
+model PricingRule {
+  id                  String @id @default(cuid())
+  vehicleType         String @unique
+  fuelPrice           Float
+  baseFarePerKm       Float
+  platformFeePercent  Float
+  minimumFare         Float
+  seatDiscountPercent Float
+  goodsWeightRate     Float
+  driverBaseEarning   Float @default(100)
+  detourRatePerKm     Float @default(12)
+}

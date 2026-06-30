@@ -1,0 +1,2 @@
+import { PricingRules } from "@/components/PricingRules";
+export default function PricingPage(){ return <div className="page-shell section-pad"><span className="eyebrow">Fixed smart pricing</span><h1 className="display-title max-w-4xl">A clear price before anyone starts moving.</h1><p className="body-copy mt-5 max-w-3xl">Rules are stored in the database and editable by Control Hub. Booking APIs recalculate prices server-side so displayed fares cannot be tampered with.</p><PricingRules /></div>; }
