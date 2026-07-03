@@ -27,6 +27,13 @@ export function RequireRole({ roles, children }: { roles: SessionRole[]; childre
       .catch(() => router.replace("/login?notice=login_required"));
   }, [roles, router]);
 
-  if (!allowed) return <div className="page-shell section-pad"><div className="card animate-pulse">Checking role access…</div></div>;
+  if (!allowed) {
+    return (
+      <div className="page-shell section-pad">
+        <div className="card animate-pulse">Checking role access...</div>
+      </div>
+    );
+  }
+
   return <>{children}</>;
 }

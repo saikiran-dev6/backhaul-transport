@@ -182,9 +182,9 @@ Seed check: RouteMate searching Hyderabad → Srisailam sees the seeded approved
 
 This repository did not actually contain `/apps/api`, `/apps/web`, or `/apps/mobile` when audited. The current working app remains the root Next.js app. I added safe scaffolds:
 
-- `apps/api`: Express + Socket.io TypeScript server, PostgreSQL Prisma schema with `Role` enum, `Role[]`, availability flags and PostGIS `geography(Point,4326)` fields
+- `apps/api`: Express + Socket.io TypeScript server, PostgreSQL Prisma schema with `Role` enum, `Role[]`, availability flags, PostGIS `geography(Point,4326)` fields and seed data for the Hyderabad -> Srisailam demo
 - `apps/api/prisma/postgis.sql`: PostGIS extension and GiST indexes
-- `apps/mobile`: Expo-oriented role selector and `expo-location` helper for 5-second driver GPS streaming
+- `apps/mobile`: Expo-oriented role selector, React Navigation role stacks, Socket.io availability helper and `expo-location` helper for 5-second driver GPS streaming while status is `DRIVING`
 
 These scaffolds are intentionally excluded from the root Next.js build until their dependencies are installed. `psql` was not available on this machine and `.env` currently points at SQLite, so the PostgreSQL migration/`psql backhaul` verification step is not run in this local workspace yet.
 
