@@ -4,6 +4,10 @@ import type { LocationPoint } from "@/types";
 
 export type MatchableTrip = ReturnTrip & { vehicle: Vehicle; driver: DriverProfile };
 
+export function approvedForMarketplace(trip: MatchableTrip) {
+  return trip.status === "ACTIVE" && trip.driver.verificationStatus === "APPROVED" && trip.vehicle.verificationStatus === "APPROVED";
+}
+
 export function routeFit(trip: MatchableTrip, pickup: LocationPoint, drop: LocationPoint) {
   const start = { name: trip.fromLocationName, lat: trip.fromLat, lng: trip.fromLng };
   const end = { name: trip.toLocationName, lat: trip.toLat, lng: trip.toLng };
@@ -23,7 +27,10 @@ export function passengerEligible(trip: MatchableTrip, pickup: LocationPoint, dr
   const fit = routeFit(trip, pickup, drop);
   const permit = ["PASSENGER", "BOTH"].includes(trip.vehicle.permitType);
   const proximityLimit = Math.min(trip.maxDetourKm, 15);
-  return { ...fit, eligible: permit && trip.availableSeats >= seats && fit.sameDirection && fit.detourKm <= proximityLimit };
+  return {
+    ...fit,
+    eligible: approvedForMarketplace(trip) && trip.isLookingForPassengers && permit && trip.availableSeats >= seats && fit.sameDirection && fit.detourKm <= proximityLimit,
+  };
 }
 
 export function goodsEligible(trip: MatchableTrip, pickup: LocationPoint, drop: LocationPoint, weightKg: number, goodsType: string) {
@@ -33,7 +40,7 @@ export function goodsEligible(trip: MatchableTrip, pickup: LocationPoint, drop: 
   const goodsAllowed = !allowed.length || allowed.map((value) => value.toLowerCase()).includes(goodsType.toLowerCase());
   return {
     ...fit,
-    eligible: permit && trip.availableGoodsCapacityKg >= weightKg && fit.sameDirection && fit.detourKm <= trip.maxDetourKm && goodsAllowed,
+    eligible: approvedForMarketplace(trip) && trip.isLookingForGoods && permit && trip.availableGoodsCapacityKg >= weightKg && fit.sameDirection && fit.detourKm <= trip.maxDetourKm && goodsAllowed,
   };
 }
 

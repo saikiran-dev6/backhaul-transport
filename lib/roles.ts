@@ -1,5 +1,5 @@
 export type BackhaulRole = "ROUTEMATE" | "LOADMATE" | "CAPTAIN" | "MERCHANT" | "ADMIN";
-export type SessionRole = "ROUTEMATE" | "LOADMATE" | "CAPTAIN" | "ADMIN";
+export type SessionRole = BackhaulRole;
 
 export const roleLabels: Record<BackhaulRole, string> = {
   ROUTEMATE: "RouteMate",
@@ -25,16 +25,15 @@ export function isBackhaulRole(role?: string | null): role is BackhaulRole {
   return Boolean(role && role in roleDashboards);
 }
 
-export function parseRoleList(raw?: string | null, fallback?: string | null): SessionRole[] {
+export function parseRoleList(raw?: unknown, fallback?: string | null): SessionRole[] {
   try {
-    const parsed = raw ? JSON.parse(raw) : [];
+    const parsed = Array.isArray(raw) ? raw : typeof raw === "string" && raw ? JSON.parse(raw) : [];
     if (Array.isArray(parsed)) {
-      const roles = parsed.filter((role): role is SessionRole => ["ROUTEMATE", "LOADMATE", "CAPTAIN", "ADMIN"].includes(String(role)));
+      const roles = parsed.filter((role): role is SessionRole => ["ROUTEMATE", "LOADMATE", "CAPTAIN", "MERCHANT", "ADMIN"].includes(String(role)));
       if (roles.length) return Array.from(new Set(roles));
     }
   } catch {}
-  if (fallback === "MERCHANT") return ["LOADMATE"];
-  if (["ROUTEMATE", "LOADMATE", "CAPTAIN", "ADMIN"].includes(String(fallback))) return [fallback as SessionRole];
+  if (["ROUTEMATE", "LOADMATE", "CAPTAIN", "MERCHANT", "ADMIN"].includes(String(fallback))) return [fallback as SessionRole];
   return [];
 }
 

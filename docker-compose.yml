@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: backhaul-postgis
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: backhaul
+      POSTGRES_PASSWORD: backhaul
+      POSTGRES_DB: backhaul
+    ports:
+      - "5433:5432"
+    volumes:
+      - backhaul-postgres:/var/lib/postgresql/data
+      - ./prisma/postgis-extension.sql:/docker-entrypoint-initdb.d/01-postgis-extension.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U backhaul -d backhaul"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  backhaul-postgres:

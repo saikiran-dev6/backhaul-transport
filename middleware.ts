@@ -1,67 +1,63 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readToken } from "@/lib/auth";
 import { dashboardForRole, type BackhaulRole } from "@/lib/roles";
+import { rolesForPath } from "@/lib/routeGuards";
+import { getRequestId, withCorrelationHeaders } from "@/lib/correlation";
 
-type Rule = { prefix: string; roles: BackhaulRole[] };
+function applySecurityHeaders(response: NextResponse): NextResponse {
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)");
+  if (process.env.NODE_ENV === "production") {
+    response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  return response;
+}
 
-const roleRules: Rule[] = [
-  { prefix: "/dashboard/passenger", roles: ["ROUTEMATE"] },
-  { prefix: "/dashboard/goods", roles: ["LOADMATE"] },
-  { prefix: "/dashboard/merchant", roles: ["MERCHANT"] },
-  { prefix: "/dashboard/driver", roles: ["CAPTAIN"] },
-  { prefix: "/dashboard/admin", roles: ["ADMIN"] },
-  { prefix: "/book/passenger", roles: ["ROUTEMATE"] },
-  { prefix: "/book/goods", roles: ["LOADMATE", "MERCHANT"] },
-  { prefix: "/post-trip", roles: ["CAPTAIN"] },
-  { prefix: "/verification", roles: ["CAPTAIN"] },
-  { prefix: "/history", roles: ["ROUTEMATE", "LOADMATE", "MERCHANT"] },
-  { prefix: "/rating", roles: ["ROUTEMATE"] },
-  { prefix: "/tracking/passenger", roles: ["ROUTEMATE"] },
-  { prefix: "/tracking/goods", roles: ["LOADMATE", "MERCHANT"] },
-  { prefix: "/tracking", roles: ["ROUTEMATE", "LOADMATE", "MERCHANT", "CAPTAIN", "ADMIN"] },
-];
-
-function redirectToLogin(request: NextRequest) {
+function redirectToLogin(request: NextRequest, requestId: string) {
   const url = request.nextUrl.clone();
   const login = new URL("/login", url.origin);
   login.searchParams.set("notice", "login_required");
   login.searchParams.set("next", `${url.pathname}${url.search}`);
-  return NextResponse.redirect(login);
+  return applySecurityHeaders(withCorrelationHeaders(NextResponse.redirect(login), requestId));
 }
 
-function redirectToOwnDashboard(request: NextRequest, role: string) {
+function redirectToOwnDashboard(request: NextRequest, role: string, requestId: string) {
   const target = new URL(dashboardForRole(role), request.nextUrl.origin);
   target.searchParams.set("notice", "permission_denied");
-  return NextResponse.redirect(target);
+  return applySecurityHeaders(withCorrelationHeaders(NextResponse.redirect(target), requestId));
 }
 
-function redirectToRoleSelection(request: NextRequest) {
+function redirectToRoleSelection(request: NextRequest, requestId: string) {
   const selectRole = new URL("/select-role", request.nextUrl.origin);
   selectRole.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
-  return NextResponse.redirect(selectRole);
+  return applySecurityHeaders(withCorrelationHeaders(NextResponse.redirect(selectRole), requestId));
 }
 
 export async function middleware(request: NextRequest) {
+  const requestId = getRequestId(request);
   const { pathname } = request.nextUrl;
   const auth = await readToken(request.cookies.get("backhaul_token")?.value);
 
   if (pathname === "/select-role") {
-    if (!auth) return redirectToLogin(request);
-    return NextResponse.next();
+    if (!auth) return redirectToLogin(request, requestId);
+    return applySecurityHeaders(withCorrelationHeaders(NextResponse.next(), requestId));
   }
 
   if (pathname === "/dashboard") {
-    if (!auth) return redirectToLogin(request);
-    if (!auth.sr && auth.accountRole !== "ADMIN") return redirectToRoleSelection(request);
-    return NextResponse.redirect(new URL(dashboardForRole(auth.role), request.nextUrl.origin));
+    if (!auth) return redirectToLogin(request, requestId);
+    if (!auth.sr && auth.accountRole !== "ADMIN") return redirectToRoleSelection(request, requestId);
+    return applySecurityHeaders(withCorrelationHeaders(NextResponse.redirect(new URL(dashboardForRole(auth.role), request.nextUrl.origin)), requestId));
   }
 
-  const rule = roleRules.find((item) => pathname === item.prefix || pathname.startsWith(`${item.prefix}/`));
-  if (!rule) return NextResponse.next();
-  if (!auth) return redirectToLogin(request);
-  if (!auth.sr && auth.accountRole !== "ADMIN") return redirectToRoleSelection(request);
-  if (!rule.roles.includes(auth.role as BackhaulRole)) return redirectToOwnDashboard(request, auth.role);
-  return NextResponse.next();
+  const roles = rolesForPath(pathname);
+  if (!roles) return applySecurityHeaders(withCorrelationHeaders(NextResponse.next(), requestId));
+  if (!auth) return redirectToLogin(request, requestId);
+  if (!auth.sr && auth.accountRole !== "ADMIN") return redirectToRoleSelection(request, requestId);
+  if (!roles.includes(auth.role as BackhaulRole)) return redirectToOwnDashboard(request, auth.role, requestId);
+
+  return applySecurityHeaders(withCorrelationHeaders(NextResponse.next(), requestId));
 }
 
 export const config = {

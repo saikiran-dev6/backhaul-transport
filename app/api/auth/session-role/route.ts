@@ -1,26 +1,31 @@
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { createToken, requestUser } from "@/lib/auth";
+import { NextRequest } from "next/server";
+import { createToken, requestUser, setAuthCookie } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { parseRoleList } from "@/lib/roles";
+import { sessionRoleSchema } from "@/lib/validation";
+import { apiError, apiSuccess } from "@/lib/apiResponse";
+import { logSecurityAudit } from "@/lib/auditLog";
 
-const schema = z.object({ role: z.enum(["ROUTEMATE", "LOADMATE", "CAPTAIN", "ADMIN"]) });
+const schema = sessionRoleSchema;
 
 export async function POST(request: NextRequest) {
   const auth = await requestUser(request);
-  if (!auth) return NextResponse.json({ error: "Login required" }, { status: 401 });
+  if (!auth) return apiError("Login required", 401);
 
-  const parsed = schema.safeParse(await request.json());
-  if (!parsed.success) return NextResponse.json({ error: "Choose a valid Backhaul role" }, { status: 400 });
+  const body = await request.json();
+  const parsed = schema.safeParse(body.role);
+  if (!parsed.success) return apiError("Choose a valid Backhaul role", 400, parsed.error.issues);
 
   const user = await db.user.findUnique({ where: { id: auth.userId }, select: { fullName: true, role: true, roles: true } });
-  if (!user) return NextResponse.json({ error: "Login required" }, { status: 401 });
+  if (!user) return apiError("Login required", 401);
 
   const availableRoles = parseRoleList(user.roles, user.role);
-  if (!availableRoles.includes(parsed.data.role)) return NextResponse.json({ error: "This account cannot use that role" }, { status: 403 });
+  if (!availableRoles.includes(parsed.data)) return apiError("This account cannot use that role", 403);
 
-  const token = await createToken({ userId: auth.userId, role: user.role, name: user.fullName, sr: parsed.data.role });
-  const response = NextResponse.json({ sessionRole: parsed.data.role, availableRoles });
-  response.cookies.set("backhaul_token", token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 604800, path: "/" });
+  const token = await createToken({ userId: auth.userId, role: user.role, name: user.fullName, sr: parsed.data });
+  await logSecurityAudit("SESSION_ROLE_CHANGED", { userId: auth.userId, metadata: { oldRole: auth.role, newRole: parsed.data } });
+
+  const response = apiSuccess({ sessionRole: parsed.data, availableRoles }, "Session role selected");
+  setAuthCookie(response, token);
   return response;
 }

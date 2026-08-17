@@ -1,12 +1,13 @@
 import React from "react";
 import { Pressable, Text, View } from "react-native";
 
-export type SessionRole = "ROUTEMATE" | "LOADMATE" | "CAPTAIN";
+export type SessionRole = "ROUTEMATE" | "LOADMATE" | "CAPTAIN" | "MERCHANT";
 
 const labels: Record<SessionRole, string> = {
   ROUTEMATE: "Passenger (RouteMate)",
   LOADMATE: "Goods Sender (LoadMate)",
   CAPTAIN: "Driver (Backhaul Captain)",
+  MERCHANT: "Merchant",
 };
 
 export function SelectRoleModal({ roles, onSelect }: { roles: SessionRole[]; onSelect: (role: SessionRole) => void }) {

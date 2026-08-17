@@ -28,16 +28,25 @@ export function passengerPrice(input: {
   };
 }
 
-export function goodsPrice(input: { distanceKm: number; detourKm: number; weightKg: number; rule: PricingRule }) {
+export function goodsPrice(input: {
+  distanceKm: number;
+  detourKm: number;
+  weightKg: number;
+  rule: PricingRule;
+  isFragile?: boolean;
+  isHeavy?: boolean;
+  requiresColdStorage?: boolean;
+}) {
   const { distanceKm, detourKm, weightKg, rule } = input;
   const baseFare = rule.minimumFare;
   const distanceCharge = distanceKm * rule.baseFarePerKm;
   const weightCharge = weightKg * rule.goodsWeightRate;
   const detourCharge = detourKm * rule.detourRatePerKm;
-  const subtotal = baseFare + distanceCharge + weightCharge + detourCharge;
+  const handlingCharge = (input.isFragile ? 80 : 0) + (input.isHeavy ? 120 : 0) + (input.requiresColdStorage ? 180 : 0);
+  const subtotal = baseFare + distanceCharge + weightCharge + detourCharge + handlingCharge;
   const platformFee = subtotal * (rule.platformFeePercent / 100);
   return {
     total: money(subtotal + platformFee),
-    breakdown: { baseFare: money(baseFare), distanceCharge: money(distanceCharge), weightCharge: money(weightCharge), detourCharge: money(detourCharge), platformFee: money(platformFee) },
+    breakdown: { baseFare: money(baseFare), distanceCharge: money(distanceCharge), weightCharge: money(weightCharge), detourCharge: money(detourCharge), handlingCharge: money(handlingCharge), platformFee: money(platformFee) },
   };
 }

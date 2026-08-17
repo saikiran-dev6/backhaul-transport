@@ -1,0 +1,41 @@
+name: Backhaul CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: backhaul
+          POSTGRES_PASSWORD: backhaul
+          POSTGRES_DB: backhaul
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U backhaul -d backhaul"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://backhaul:backhaul@localhost:5432/backhaul?schema=public
+      JWT_SECRET: ci-secret-change-me
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir apps/api install --frozen-lockfile --ignore-scripts
+      - run: pnpm db:setup
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm --dir apps/api build

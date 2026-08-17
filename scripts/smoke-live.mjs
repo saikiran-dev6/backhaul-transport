@@ -84,6 +84,13 @@ function tomorrowSearchTime() {
   return date.toISOString();
 }
 
+function goodsSearchTime() {
+  const date = new Date();
+  date.setDate(date.getDate() + 2);
+  date.setHours(7, 0, 0, 0);
+  return date.toISOString();
+}
+
 async function main() {
   await waitForServer();
 
@@ -102,7 +109,10 @@ async function main() {
   );
   driverCookie = cookieFrom(driverRole.response, driverCookie);
   const driverDashboard = await getJson("/api/dashboard", driverCookie, "driver dashboard");
-  const tripId = driverDashboard.trips?.[0]?.id;
+  const smokeTrip = driverDashboard.trips?.find(
+    (trip) => trip.fromLocationName.includes("Hyderabad") && trip.toLocationName.includes("Srisailam"),
+  ) || driverDashboard.trips?.[0];
+  const tripId = smokeTrip?.id;
   if (!tripId) throw new Error("Driver dashboard did not return a seeded trip");
 
   const passengerLogin = await postJson(
@@ -145,6 +155,34 @@ async function main() {
   );
   const afterOn = (await postJson("/api/matches/passenger", search, passengerCookie, "passenger match after on")).json;
 
+  const goodsLogin = await postJson(
+    "/api/auth/login",
+    { identifier: "goods@backhaul.test", password: "Demo@123" },
+    undefined,
+    "goods login",
+  );
+  let goodsCookie = cookieFrom(goodsLogin.response, undefined);
+  const goodsRole = await postJson(
+    "/api/auth/session-role",
+    { role: "LOADMATE" },
+    goodsCookie,
+    "goods session role",
+  );
+  goodsCookie = cookieFrom(goodsRole.response, goodsCookie);
+  const goodsSearch = {
+    pickup: { name: "Guntur, Andhra Pradesh", lat: 16.3067, lng: 80.4365 },
+    drop: { name: "Hyderabad, Telangana", lat: 17.385, lng: 78.4867 },
+    departureTime: goodsSearchTime(),
+    goodsType: "PARCEL",
+    weightKg: 100,
+    quantity: 4,
+    sizeDescription: "Four parcel sacks",
+    isFragile: false,
+    requiresColdStorage: false,
+    isHeavy: false,
+  };
+  const goodsMatches = (await postJson("/api/matches/goods", goodsSearch, goodsCookie, "goods match")).json;
+
   const result = {
     driverRequiresRole: driverLogin.json.requiresRoleSelection,
     driverSessionRole: driverRole.json.sessionRole,
@@ -157,6 +195,9 @@ async function main() {
     eventRoom: off.event.room,
     toggledOn: on.trip.isLookingForPassengers === true,
     matchesAfterOn: afterOn.matches.length,
+    goodsSessionRole: goodsRole.json.sessionRole,
+    goodsMatches: goodsMatches.matches.length,
+    recommendedVehicle: goodsMatches.recommendedVehicle,
   };
 
   if (
@@ -170,7 +211,9 @@ async function main() {
     result.eventName !== "availability:update" ||
     !result.eventRoom.startsWith("route:") ||
     !result.toggledOn ||
-    result.matchesAfterOn < 1
+    result.matchesAfterOn < 1 ||
+    result.goodsSessionRole !== "LOADMATE" ||
+    result.goodsMatches < 1
   ) {
     throw new Error(`Smoke assertions failed: ${JSON.stringify(result, null, 2)}`);
   }

@@ -1,4 +1,5 @@
 import type { LocationPoint } from "@/types";
+import { getAppConfig } from "./config";
 
 const EARTH_RADIUS_KM = 6371;
 
@@ -33,6 +34,40 @@ export function pointToRoute(point: LocationPoint, start: LocationPoint, end: Lo
 
 export function routeDistanceEstimateKm(start: LocationPoint, end: LocationPoint) {
   return Math.round(haversineKm(start, end) * 1.18 * 10) / 10;
+}
+
+export async function calculateRouteEtaInfo(origin: LocationPoint, destination: LocationPoint) {
+  const cfg = getAppConfig();
+
+  // Mapbox Directions API for driving ETA & distance
+  if (cfg.mapboxAccessToken) {
+    try {
+      const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${origin.lng},${origin.lat};${destination.lng},${destination.lat}?access_token=${cfg.mapboxAccessToken}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        const route = json.routes?.[0];
+        if (route) {
+          return {
+            distanceKm: Math.round((route.distance / 1000) * 10) / 10,
+            durationMinutes: Math.round(route.duration / 60),
+            provider: "mapbox",
+          };
+        }
+      }
+    } catch {
+      // Fall through to Haversine fallback
+    }
+  }
+
+  // Haversine fallback ETA (assuming 45 km/h average speed in transit)
+  const distKm = routeDistanceEstimateKm(origin, destination);
+  const durationMins = Math.max(5, Math.round((distKm / 45) * 60));
+  return {
+    distanceKm: distKm,
+    durationMinutes: durationMins,
+    provider: "haversine",
+  };
 }
 
 export function maskVehicleNumber(value: string) {

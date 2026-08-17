@@ -8,5 +8,5 @@
     "skipLibCheck": true,
     "outDir": "dist"
   },
-  "include": ["src/**/*.ts", "prisma/**/*.ts"]
+  "include": ["src/**/*.ts"]
 }

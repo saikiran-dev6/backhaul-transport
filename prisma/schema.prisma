@@ -3,8 +3,16 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ROUTEMATE
+  LOADMATE
+  CAPTAIN
+  MERCHANT
+  ADMIN
 }
 
 model User {
@@ -14,8 +22,8 @@ model User {
   phone             String             @unique
   email             String             @unique
   passwordHash      String
-  role              String
-  roles             String             @default("[]")
+  role              Role
+  roles             Role[]             @default([])
   language          String             @default("en")
   otpVerified       Boolean            @default(false)
   otpCode           String?
@@ -27,6 +35,10 @@ model User {
   ratingsGiven      Rating[]           @relation("RatingFrom")
   ratingsReceived   Rating[]           @relation("RatingTo")
   complaints        Complaint[]
+  tripEvents        TripEvent[]
+  analyticsEvents   AnalyticsEvent[]
+  authSessions      AuthSession[]
+  securityAuditEvents SecurityAuditEvent[]
 
   @@index([role])
 }
@@ -39,12 +51,18 @@ model DriverProfile {
   verificationStatus String           @default("PENDING")
   rating             Float            @default(5)
   totalTrips         Int              @default(0)
-  emergencyContact   String?
-  bankUpiDetails     String?
-  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  vehicles           Vehicle[]
-  documents          DriverDocument[]
-  trips              ReturnTrip[]
+  emergencyContact         String?
+  bankUpiDetails           String?
+  captainPaymentAccountId  String?
+  providerLinkedAccountId  String?
+  user                     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicles                 Vehicle[]
+  documents                DriverDocument[]
+  trips                    ReturnTrip[]
+  locations                DriverLocation[]
+  payments                 Payment[]
+
+  @@index([verificationStatus])
 }
 
 model Vehicle {
@@ -64,6 +82,10 @@ model Vehicle {
   driver             DriverProfile    @relation(fields: [driverId], references: [id], onDelete: Cascade)
   documents          DriverDocument[]
   trips              ReturnTrip[]
+
+  @@index([permitType])
+  @@index([vehicleType])
+  @@index([verificationStatus])
 }
 
 model DriverDocument {
@@ -86,9 +108,11 @@ model ReturnTrip {
   fromLocationName         String
   fromLat                  Float
   fromLng                  Float
+  fromGeo                  Unsupported("geography(Point,4326)")?
   toLocationName           String
   toLat                    Float
   toLng                    Float
+  toGeo                    Unsupported("geography(Point,4326)")?
   routeDistanceKm          Float
   estimatedDurationMin     Int
   routePolyline            String?
@@ -101,6 +125,7 @@ model ReturnTrip {
   allowedGoodsTypes        String             @default("[]")
   fixedBasePrice           Float              @default(0)
   isLookingForPassengers   Boolean            @default(true)
+  isLookingForGoods        Boolean            @default(true)
   status                   String             @default("ACTIVE")
   createdAt                DateTime           @default(now())
   driver                   DriverProfile      @relation(fields: [driverId], references: [id], onDelete: Cascade)
@@ -109,31 +134,49 @@ model ReturnTrip {
   goodsBookings            GoodsBooking[]
   ratings                  Rating[]
   complaints               Complaint[]
+  driverLocations          DriverLocation[]
+  tripEvents               TripEvent[]
 
-  @@index([status, departureTime])
+  @@index([status])
+  @@index([departureTime])
+  @@index([isLookingForPassengers])
+  @@index([isLookingForGoods])
+  @@index([status, departureTime, isLookingForPassengers])
+  @@index([status, departureTime, isLookingForGoods])
 }
 
 model PassengerBooking {
-  id            String   @id @default(cuid())
-  tripId        String
-  passengerId   String
-  seatsBooked   Int
-  pickupName    String
-  pickupLat     Float
-  pickupLng     Float
-  dropName      String
-  dropLat       Float
-  dropLng       Float
-  fare          Float
-  pickupOtp     String
-  bookingStatus String   @default("CONFIRMED")
-  paymentStatus String   @default("PENDING")
-  isLookingForRide Boolean @default(true)
-  createdAt     DateTime @default(now())
-  trip          ReturnTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
-  passenger     User       @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+  id                  String            @id @default(cuid())
+  tripId              String
+  passengerId         String
+  seatsBooked         Int
+  pickupName          String
+  pickupLat           Float
+  pickupLng           Float
+  pickupGeo           Unsupported("geography(Point,4326)")?
+  dropName            String
+  dropLat             Float
+  dropLng             Float
+  dropGeo             Unsupported("geography(Point,4326)")?
+  fare                Float
+  pickupOtp           String
+  pickupOtpHash       String?
+  pickupOtpVerifiedAt DateTime?
+  otpAttemptCount     Int               @default(0)
+  idempotencyKey      String?           @unique
+  bookingStatus       String            @default("CONFIRMED")
+  paymentStatus       String            @default("PENDING")
+  isLookingForRide    Boolean           @default(true)
+  createdAt           DateTime          @default(now())
+  trip                ReturnTrip        @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  passenger           User              @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+  payments            Payment[]
 
   @@index([passengerId, createdAt])
+  @@index([bookingStatus])
+  @@index([paymentStatus])
+  @@index([isLookingForRide])
+  @@index([idempotencyKey])
 }
 
 model GoodsRequest {
@@ -142,9 +185,11 @@ model GoodsRequest {
   pickupName          String
   pickupLat           Float
   pickupLng           Float
+  pickupGeo           Unsupported("geography(Point,4326)")?
   dropName            String
   dropLat             Float
   dropLng             Float
+  dropGeo             Unsupported("geography(Point,4326)")?
   goodsType           String
   weightKg            Float
   quantity            Int
@@ -157,37 +202,92 @@ model GoodsRequest {
   createdAt           DateTime       @default(now())
   sender              User           @relation(fields: [senderId], references: [id], onDelete: Cascade)
   bookings            GoodsBooking[]
+
+  @@index([senderId, createdAt])
+  @@index([status])
+  @@index([goodsType])
 }
 
 model GoodsBooking {
-  id                String       @id @default(cuid())
-  goodsRequestId    String
-  tripId            String
-  price             Float
-  pickupOtp         String
-  deliveryOtp       String
-  pickupStatus      String       @default("PENDING")
-  deliveryStatus    String       @default("PENDING")
-  deliveryProofUrl  String?
-  createdAt         DateTime     @default(now())
-  goodsRequest      GoodsRequest @relation(fields: [goodsRequestId], references: [id], onDelete: Cascade)
-  trip              ReturnTrip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  id                    String            @id @default(cuid())
+  goodsRequestId        String
+  tripId                String
+  price                 Float
+  pickupOtp             String
+  pickupOtpHash         String?
+  pickupOtpVerifiedAt   DateTime?
+  deliveryOtp           String
+  deliveryOtpHash       String?
+  deliveryOtpVerifiedAt DateTime?
+  otpAttemptCount       Int               @default(0)
+  idempotencyKey        String?           @unique
+  pickupStatus          String            @default("PENDING")
+  deliveryStatus        String            @default("PENDING")
+  deliveryProofUrl      String?
+  paymentStatus         String            @default("PENDING")
+  createdAt             DateTime          @default(now())
+  goodsRequest          GoodsRequest      @relation(fields: [goodsRequestId], references: [id], onDelete: Cascade)
+  trip                  ReturnTrip        @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  payments              Payment[]
 
   @@index([tripId, createdAt])
+  @@index([deliveryStatus])
+  @@index([paymentStatus])
+  @@index([idempotencyKey])
 }
 
 model Payment {
-  id            String   @id @default(cuid())
-  bookingId     String
-  bookingType   String
-  amount        Float
-  platformFee   Float
-  driverEarning Float
-  method        String
-  status        String   @default("PENDING")
-  createdAt     DateTime @default(now())
+  id                 String            @id @default(cuid())
+  bookingId          String
+  bookingType        String
+  passengerBookingId      String?
+  goodsBookingId          String?
+  driverId                String?
+  captainPaymentAccountId String?
+  amount                  Float
+  platformFee             Float
+  driverEarning           Float
+  method                  String
+  status                  String            @default("PENDING")
+  provider                String            @default("RAZORPAY")
+  providerOrderId         String?           @unique
+  providerPaymentId       String?           @unique
+  providerSignature       String?
+  currency                String            @default("INR")
+  failureReason           String?
+  refundId                String?           @unique
+  refundAmount            Float?
+  refundStatus            String?
+  metadata                Json?
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @default(now()) @updatedAt
+  passengerBooking        PassengerBooking? @relation(fields: [passengerBookingId], references: [id], onDelete: Cascade)
+  goodsBooking            GoodsBooking?     @relation(fields: [goodsBookingId], references: [id], onDelete: Cascade)
+  driver                  DriverProfile?    @relation(fields: [driverId], references: [id], onDelete: SetNull)
 
   @@index([bookingId, bookingType])
+  @@index([passengerBookingId])
+  @@index([goodsBookingId])
+  @@index([driverId])
+  @@index([status])
+  @@index([providerOrderId])
+  @@index([providerPaymentId])
+}
+
+model PaymentWebhookEvent {
+  id          String   @id @default(cuid())
+  provider    String   @default("RAZORPAY")
+  eventId     String
+  eventType   String
+  payloadHash String?
+  status      String   @default("PROCESSED")
+  error       String?
+  processedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@unique([provider, eventId])
+  @@index([provider, eventId])
+  @@index([createdAt])
 }
 
 model Rating {
@@ -226,4 +326,79 @@ model PricingRule {
   goodsWeightRate     Float
   driverBaseEarning   Float @default(100)
   detourRatePerKm     Float @default(12)
+}
+
+model DriverLocation {
+  id        String   @id @default(cuid())
+  driverId  String
+  tripId    String?
+  lat       Float
+  lng       Float
+  point     Unsupported("geography(Point,4326)")?
+  status    String   @default("DRIVING")
+  createdAt DateTime @default(now())
+  driver    DriverProfile @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  trip      ReturnTrip?   @relation(fields: [tripId], references: [id], onDelete: SetNull)
+
+  @@index([driverId, createdAt])
+  @@index([tripId, createdAt])
+}
+
+model TripEvent {
+  id        String   @id @default(cuid())
+  tripId    String
+  actorId   String?
+  type      String
+  status    String?
+  message   String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  trip      ReturnTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  actor     User?      @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([tripId, createdAt])
+  @@index([type, createdAt])
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  type      String
+  metadata  Json?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([type, createdAt])
+  @@index([userId, createdAt])
+}
+
+model AuthSession {
+  id          String    @id @default(cuid())
+  userId      String
+  tokenHash   String    @unique
+  familyId    String
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  userAgent   String?
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([tokenHash])
+  @@index([familyId])
+  @@index([expiresAt])
+}
+
+model SecurityAuditEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  event     String
+  ipAddress String?
+  userAgent String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([event, createdAt])
 }

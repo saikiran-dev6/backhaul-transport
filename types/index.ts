@@ -19,4 +19,5 @@ export type RouteMatch = {
   from: LocationPoint;
   to: LocationPoint;
   isLookingForPassengers?: boolean;
+  isLookingForGoods?: boolean;
 };

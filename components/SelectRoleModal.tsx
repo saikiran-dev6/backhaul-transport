@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Boxes, ShieldCheck, Truck, Users, type LucideIcon } from "lucide-react";
+import { Boxes, Building2, ShieldCheck, Truck, Users, type LucideIcon } from "lucide-react";
 import { dashboardForRole, roleLabels, type SessionRole } from "@/lib/roles";
 
 const roleCards: Record<SessionRole, { title: string; copy: string; icon: LucideIcon }> = {
   ROUTEMATE: { title: "Passenger (RouteMate)", copy: "Book return seats and track your passenger trips.", icon: Users },
   CAPTAIN: { title: "Driver (Backhaul Captain)", copy: "Post return trips, toggle passenger availability and manage earnings.", icon: Truck },
   LOADMATE: { title: "Goods Sender (LoadMate)", copy: "Send goods, use pickup/delivery OTPs and track proof of delivery.", icon: Boxes },
+  MERCHANT: { title: "Merchant", copy: "Manage repeat goods routes and business shipments.", icon: Building2 },
   ADMIN: { title: "Admin (Control Hub)", copy: "Manage users, verification, pricing and reports.", icon: ShieldCheck },
 };
 

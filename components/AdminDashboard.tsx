@@ -1,15 +1,92 @@
 "use client";
 
-import { useEffect,useState } from "react";import { DashboardShell,Stat } from "@/components/DashboardShell";import { EmptyState,LoadingState,StatusBadge } from "@/components/ui";
-type Analytics=Record<string,number>;type Overview={users:any[];trips:any[];passengerBookings:any[];goodsBookings:any[];complaints:any[]};type Verification={drivers:any[];vehicles:any[];documents:any[]};type Rule={id:string;vehicleType:string;fuelPrice:number;baseFarePerKm:number;platformFeePercent:number;minimumFare:number;seatDiscountPercent:number;goodsWeightRate:number;driverBaseEarning:number;detourRatePerKm:number};
-const tabs=["Analytics","Users","Verification","Trips & bookings","Pricing rules","Complaints"];
-export function AdminDashboard(){const [tab,setTab]=useState("Analytics");const [analytics,setAnalytics]=useState<Analytics|null>(null);const [overview,setOverview]=useState<Overview|null>(null);const [verification,setVerification]=useState<Verification|null>(null);const [rules,setRules]=useState<Rule[]>([]);const [message,setMessage]=useState("");const load=()=>Promise.all([fetch("/api/admin/analytics").then(r=>r.json()),fetch("/api/admin/overview").then(r=>r.json()),fetch("/api/admin/verification").then(r=>r.json()),fetch("/api/pricing").then(r=>r.json())]).then(([a,o,v,p])=>{setAnalytics(a.analytics||null);setOverview(o);setVerification(v);setRules(p.rules||[])});useEffect(()=>{load()},[]);
-const verify=async(target:string,id:string,status:string)=>{const reason=status==="REJECTED"?window.prompt("Rejection reason")||"Needs correction":undefined;const r=await fetch("/api/admin/verification",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({target,id,status,rejectionReason:reason})});const d=await r.json();setMessage(d.message||d.error);load()};const saveRule=async(rule:Rule)=>{const r=await fetch("/api/pricing",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(rule)});const d=await r.json();setMessage(r.ok?`${rule.vehicleType} pricing updated`:d.error);load()};
-return <DashboardShell role="Control Hub" title="Marketplace operations." copy="Live users, verification queues, dynamic trips, bookings, pricing, complaints and impact analytics from the database.">{message&&<p className="mb-5 rounded-xl bg-brand-50 p-3 text-sm font-bold text-brand-800">{message}</p>}<div className="mb-6 flex gap-2 overflow-x-auto pb-2">{tabs.map(t=><button key={t} onClick={()=>setTab(t)} className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-black ${tab===t?"bg-ink text-white":"bg-white text-slate-600 ring-1 ring-slate-200"}`}>{t}</button>)}</div>{!analytics||!overview||!verification?<LoadingState label="Loading Control Hub data…"/>:<>{tab==="Analytics"&&<AnalyticsPanel data={analytics}/>} {tab==="Users"&&<UsersPanel users={overview.users}/>} {tab==="Verification"&&<VerificationPanel data={verification} onVerify={verify}/>} {tab==="Trips & bookings"&&<TripsPanel data={overview}/>} {tab==="Pricing rules"&&<PricingPanel rules={rules} setRules={setRules} save={saveRule}/>} {tab==="Complaints"&&(overview.complaints.length?<Table headers={["User","Type","Description","Status"]} rows={overview.complaints.map(c=>[c.user.fullName,c.complaintType,c.description,<StatusBadge key={c.id} status={c.status}/>])}/>:<EmptyState title="No open complaints" copy="Safety and service complaints will appear here for Control Hub review."/>)}</>}</DashboardShell>}
-function AnalyticsPanel({data}:{data:Analytics}){const entries=[['Total users',data.users],['Total trips',data.totalTrips],['Active routes',data.activeRoutes],['Empty seats filled',data.emptySeatsFilled],['Goods capacity used',`${data.goodsCapacityUsedKg} kg`],['Empty km reduced',`${data.estimatedEmptyKmReduced} km`],['Captain earnings',`₹${data.totalDriverEarnings}`],['Passengers served',data.totalPassengersServed],['Goods deliveries',data.totalGoodsDeliveries],['Pending Captains',data.pendingDrivers],['Pending vehicles',data.pendingVehicles],['Open complaints',data.openComplaints]];return <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{entries.map(([l,v])=><Stat key={String(l)} label={String(l)} value={v}/>)}</div>}
-function UsersPanel({users}:{users:any[]}){return <Table headers={["Name","Username","Contact","Role","OTP"]} rows={users.map(u=>[u.fullName,u.username,<span key={u.id}>{u.email}<small className="block text-slate-400">{u.phone}</small></span>,u.role,<StatusBadge key={`${u.id}-status`} status={u.otpVerified?"APPROVED":"PENDING"}/>])}/>}
-function VerificationPanel({data,onVerify}:{data:Verification;onVerify:(target:string,id:string,status:string)=>void}){return <div className="grid gap-6"><section><h2 className="mb-3 text-xl font-black">Captains</h2><Table headers={["Captain","Licence","Vehicles","Status","Action"]} rows={data.drivers.map(d=>[<span key={d.id}>{d.user.fullName}<small className="block text-slate-400">{d.user.email}</small></span>,d.licenseNumber||"Not supplied",d.vehicles.length,<StatusBadge key={`${d.id}-s`} status={d.verificationStatus}/>,<Actions key={`${d.id}-a`} onClick={s=>onVerify("DRIVER",d.id,s)}/>])}/></section><section><h2 className="mb-3 text-xl font-black">Vehicles</h2><Table headers={["Vehicle","Captain","Permit","Status","Action"]} rows={data.vehicles.map(v=>[`${v.vehicleNumber} · ${v.vehicleType}`,v.driver.user.fullName,v.permitType,<StatusBadge key={`${v.id}-s`} status={v.verificationStatus}/>,<Actions key={`${v.id}-a`} onClick={s=>onVerify("VEHICLE",v.id,s)}/>])}/></section><section><h2 className="mb-3 text-xl font-black">Documents</h2>{data.documents.length?<Table headers={["Document","Captain","File","Status","Action"]} rows={data.documents.map(d=>[d.documentType,d.driver.user.fullName,<a key={`${d.id}-f`} className="font-bold text-brand-700" target="_blank" href={d.fileUrl}>Open</a>,<StatusBadge key={`${d.id}-s`} status={d.status}/>,<Actions key={`${d.id}-a`} onClick={s=>onVerify("DOCUMENT",d.id,s)}/>])}/>:<EmptyState title="No documents submitted"/>}</section></div>}
-function Actions({onClick}:{onClick:(status:string)=>void}){return <div className="flex gap-1"><button onClick={()=>onClick("APPROVED")} className="rounded-lg bg-eco-50 px-2 py-1 text-xs font-black text-eco-700">Approve</button><button onClick={()=>onClick("REJECTED")} className="rounded-lg bg-red-50 px-2 py-1 text-xs font-black text-red-700">Reject</button></div>}
-function TripsPanel({data}:{data:Overview}){return <div className="grid gap-7"><section><h2 className="mb-3 text-xl font-black">Dynamic trips</h2><Table headers={["Route","Captain / vehicle","Departure","Capacity","Status"]} rows={data.trips.map(t=>[<span key={t.id}>{t.fromLocationName}<small className="block text-slate-400">→ {t.toLocationName}</small></span>,`${t.driver.user.fullName} · ${t.vehicle.vehicleNumber}`,new Date(t.departureTime).toLocaleString("en-IN"),`${t.availableSeats} seats / ${t.availableGoodsCapacityKg} kg`,<StatusBadge key={`${t.id}-s`} status={t.status}/>])}/></section><section><h2 className="mb-3 text-xl font-black">Passenger bookings</h2><Table headers={["RouteMate","Route","Seats","Fare","Status"]} rows={data.passengerBookings.map(b=>[b.passenger.fullName,`${b.trip.fromLocationName} → ${b.trip.toLocationName}`,b.seatsBooked,`₹${b.fare}`,<StatusBadge key={b.id} status={b.bookingStatus}/>])}/></section><section><h2 className="mb-3 text-xl font-black">Goods bookings</h2><Table headers={["LoadMate","Goods","Route","Price","Delivery"]} rows={data.goodsBookings.map(b=>[b.goodsRequest.sender.fullName,`${b.goodsRequest.goodsType} · ${b.goodsRequest.weightKg} kg`,`${b.trip.fromLocationName} → ${b.trip.toLocationName}`,`₹${b.price}`,<StatusBadge key={b.id} status={b.deliveryStatus}/>])}/></section></div>}
-function PricingPanel({rules,setRules,save}:{rules:Rule[];setRules:(rules:Rule[])=>void;save:(rule:Rule)=>void}){const update=(id:string,key:keyof Rule,value:string)=>setRules(rules.map(r=>r.id===id?{...r,[key]:Number(value)}:r));return <div className="grid gap-4 md:grid-cols-2">{rules.map(rule=><article className="card !shadow-none" key={rule.id}><h2 className="mb-4 text-xl font-black">{rule.vehicleType.replaceAll("_"," ")}</h2><div className="grid grid-cols-2 gap-3">{([['fuelPrice','Fuel ₹/L'],['baseFarePerKm','Base ₹/km'],['platformFeePercent','Platform %'],['minimumFare','Minimum ₹'],['seatDiscountPercent','Seat discount %'],['goodsWeightRate','Weight ₹/kg'],['driverBaseEarning','Captain base ₹'],['detourRatePerKm','Detour ₹/km']] as Array<[keyof Rule,string]>).map(([key,label])=><label key={key}><span className="label text-xs">{label}</span><input className="field" type="number" step="0.1" value={rule[key] as number} onChange={e=>update(rule.id,key,e.target.value)}/></label>)}</div><button className="btn-primary mt-4 w-full" onClick={()=>save(rule)}>Save live rule</button></article>)}</div>}
-function Table({headers,rows}:{headers:string[];rows:React.ReactNode[][]}){return <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500"><tr>{headers.map(h=><th className="px-4 py-3" key={h}>{h}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{rows.map((row,i)=><tr key={i} className="hover:bg-slate-50">{row.map((cell,j)=><td className="px-4 py-3" key={j}>{cell}</td>)}</tr>)}</tbody></table></div>}
+import { useEffect, useState } from "react";
+import { DashboardShell } from "@/components/DashboardShell";
+import { LoadingState } from "@/components/ui";
+import {
+  AdminAnalyticsPanel,
+  AdminComplaintsPanel,
+  AdminPricingPanel,
+  AdminTripsPanel,
+  AdminUsersPanel,
+  AdminVerificationPanel,
+  adminTabs,
+  type AdminAnalytics,
+  type AdminOverview,
+  type AdminPricingRule,
+  type AdminVerification,
+} from "@/components/admin/AdminPanels";
+
+export function AdminDashboard() {
+  const [tab, setTab] = useState("Analytics");
+  const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
+  const [verification, setVerification] = useState<AdminVerification | null>(null);
+  const [rules, setRules] = useState<AdminPricingRule[]>([]);
+  const [message, setMessage] = useState("");
+
+  const load = () => Promise.all([
+    fetch("/api/admin/analytics").then((response) => response.json()),
+    fetch("/api/admin/overview").then((response) => response.json()),
+    fetch("/api/admin/verification").then((response) => response.json()),
+    fetch("/api/pricing").then((response) => response.json()),
+  ]).then(([analyticsData, overviewData, verificationData, pricingData]) => {
+    setAnalytics(analyticsData.analytics || null);
+    setOverview(overviewData);
+    setVerification(verificationData);
+    setRules(pricingData.rules || []);
+  });
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  const verify = async (target: string, id: string, status: string) => {
+    const rejectionReason = status === "REJECTED" ? window.prompt("Rejection reason") || "Needs correction" : undefined;
+    const response = await fetch("/api/admin/verification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target, id, status, rejectionReason }),
+    });
+    const data = await response.json();
+    setMessage(data.message || data.error);
+    void load();
+  };
+
+  const saveRule = async (rule: AdminPricingRule) => {
+    const response = await fetch("/api/pricing", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(rule),
+    });
+    const data = await response.json();
+    setMessage(response.ok ? `${rule.vehicleType} pricing updated` : data.error);
+    void load();
+  };
+
+  return (
+    <DashboardShell role="Control Hub" title="Marketplace operations." copy="Live users, verification queues, dynamic trips, bookings, pricing, complaints and impact analytics from the database.">
+      {message && <p className="mb-5 rounded-xl bg-brand-50 p-3 text-sm font-bold text-brand-800">{message}</p>}
+      <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+        {adminTabs.map((item) => (
+          <button key={item} onClick={() => setTab(item)} className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-black ${tab === item ? "bg-ink text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}>
+            {item}
+          </button>
+        ))}
+      </div>
+
+      {!analytics || !overview || !verification ? (
+        <LoadingState label="Loading Control Hub data..." />
+      ) : (
+        <>
+          {tab === "Analytics" && <AdminAnalyticsPanel data={analytics} />}
+          {tab === "Users" && <AdminUsersPanel users={overview.users} />}
+          {tab === "Verification" && <AdminVerificationPanel data={verification} onVerify={verify} />}
+          {tab === "Trips & bookings" && <AdminTripsPanel data={overview} />}
+          {tab === "Pricing rules" && <AdminPricingPanel rules={rules} setRules={setRules} save={saveRule} />}
+          {tab === "Complaints" && <AdminComplaintsPanel complaints={overview.complaints} />}
+        </>
+      )}
+    </DashboardShell>
+  );
+}

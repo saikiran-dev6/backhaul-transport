@@ -23,17 +23,18 @@ This is a full-stack MVP, not a static route demo. Captains can create any route
 - Role dashboards for RouteMate, LoadMate, Merchant, Captain and Control Hub
 - Professional public landing page with local transport/map placeholder visuals in `public/images/`
 - Mock UPI/card/cash payments, pickup/delivery OTPs and simulated live movement
-- Goods photo and delivery-proof uploads using local MVP storage
+- Goods photo, delivery-proof and verification-document uploads through a storage abstraction
 - Dynamic popular routes, earnings, impact metrics, booking history and Captain ratings
-- SQLite for a zero-cost local demo; Prisma models are straightforward to migrate to PostgreSQL/Supabase
-- `/apps/api` and `/apps/mobile` scaffolds for the requested Express + Socket.io + PostgreSQL/PostGIS + Expo split
+- PostgreSQL/PostGIS production data model through Prisma, with local Docker PostGIS setup
+- Real `/apps/api` Express + Socket.io backend and `/apps/mobile` Expo client sharing the PostgreSQL/PostGIS data contract
 
 ## Tech stack
 
 - Next.js 14 App Router, React 18 and TypeScript
 - Tailwind CSS
 - Next.js REST route handlers
-- Prisma ORM with SQLite
+- Express + Socket.io backend in `apps/api`
+- Prisma ORM with PostgreSQL/PostGIS
 - JWT stored in an HTTP-only cookie and role checks in every protected API
 - Leaflet + OpenStreetMap, with Nominatim search and a map-provider integration point
 - Zod validation, bcrypt password hashing and Vitest engine tests
@@ -74,6 +75,7 @@ Use Node.js 20 or newer and pnpm.
 ```bash
 pnpm install
 copy .env.example .env
+docker compose up -d postgres
 pnpm db:setup
 pnpm dev
 ```
@@ -98,7 +100,7 @@ Expected local run flow:
 pnpm db:setup
 ```
 
-Expected output: Prisma Client is generated, SQLite is synced, and the terminal ends with `Backhaul demo data seeded. Password for all demo users: Demo@123`.
+Expected output: Prisma Client is generated, PostgreSQL is synced, and the terminal ends with `Backhaul realistic demo data seeded. Password for all demo users: Demo@123`.
 
 ```powershell
 pnpm dev
@@ -116,14 +118,21 @@ Useful commands:
 
 ```bash
 pnpm db:generate   # generate Prisma client
-pnpm db:push       # sync schema to SQLite
+pnpm db:deploy     # apply production Prisma migrations
+pnpm db:push       # development-only schema sync fallback
+pnpm db:postgis    # install PostGIS extension/indexes when using a manually created database
 pnpm db:seed       # reset/reseed realistic demo data
+pnpm dev:api       # start the Express + Socket.io API backend
 pnpm test          # geometry and pricing tests
 pnpm build         # full production type-check and build
+pnpm smoke         # live login, role, passenger availability and goods matching smoke test
 pnpm start         # serve the production build
+pnpm start:api     # serve the built Express + Socket.io API
 ```
 
-`DATABASE_URL="file:./dev.db"` creates `prisma/dev.db`. To start clean, run `pnpm db:seed`; the seed intentionally resets local demo records.
+`DATABASE_URL` must point to PostgreSQL/PostGIS. The included `docker-compose.yml` starts a local `postgis/postgis` database at `postgresql://backhaul:backhaul@localhost:5432/backhaul?schema=public`. To start clean, run `pnpm db:seed`; the seed intentionally resets local demo records.
+
+The current seed includes 10 RouteMates, 10 LoadMates, 8 Captains, 4 Merchants, 2 Admins, 11 vehicles, 28 return trips, 30 passenger bookings, 35 goods requests, 25 goods bookings, pricing rules, ratings and complaints across Telangana/AP routes.
 
 ## Demo accounts
 
@@ -146,7 +155,7 @@ Public users can view the landing page and informational pages only. Protected p
 
 - Not logged in: redirected to `/login` with `Please login to access Backhaul services.`
 - Wrong credentials: login stays on the page and shows `Invalid credentials. Please check your login details or create a new account.` plus a register button
-- Valid RouteMate/LoadMate/Captain login: redirected to `/select-role`; the selected role is written into the JWT as `sr`
+- Valid RouteMate/LoadMate/Merchant/Captain login: redirected to `/select-role`; the selected role is written into the JWT as `sr`
 - Logged in but wrong role: redirected to the correct role dashboard with `You do not have permission to access this module.`
 - RouteMate can access passenger booking/dashboard only
 - LoadMate can access goods booking/dashboard only
@@ -159,6 +168,7 @@ Public users can view the landing page and informational pages only. Protected p
 The working web app now includes the requested dynamic availability flags:
 
 - `ReturnTrip.isLookingForPassengers`
+- `ReturnTrip.isLookingForGoods`
 - `PassengerBooking.isLookingForRide`
 
 Captains can toggle “Looking for passengers” / “Mark full” from the driver dashboard. Passenger matching filters only:
@@ -167,7 +177,17 @@ Captains can toggle “Looking for passengers” / “Mark full” from the driv
 status = ACTIVE
 isLookingForPassengers = true
 passenger isLookingForRide = true
+captain/vehicle approved
 capacity/time/detour/permit rules pass
+```
+
+Goods matching filters only:
+
+```text
+status = ACTIVE
+isLookingForGoods = true
+captain/vehicle approved
+capacity/type/time/detour/permit rules pass
 ```
 
 The passenger booking screen live-refreshes matches after a search, so when the seeded Captain is marked full the match disappears automatically. PATCH responses include the intended Socket.io event shape:
@@ -176,17 +196,24 @@ The passenger booking screen live-refreshes matches after a search, so when the 
 availability:update → route:<from>-<to>
 ```
 
-Seed check: RouteMate searching Hyderabad → Srisailam sees the seeded approved Captain; toggling that Captain off returns zero matches; toggling back on restores the match.
+Seed check: RouteMate searching Hyderabad -> Srisailam sees the seeded approved Captain; toggling that Captain off returns zero matches; toggling back on restores the match. LoadMate searching Guntur -> Hyderabad sees a permitted goods vehicle.
 
-## API/mobile scaffold status
+## API and mobile status
 
-This repository did not actually contain `/apps/api`, `/apps/web`, or `/apps/mobile` when audited. The current working app remains the root Next.js app. I added safe scaffolds:
+The root Next.js app remains the main web UI, but the monorepo now also has a shared backend and a more functional Expo client:
 
-- `apps/api`: Express + Socket.io TypeScript server, PostgreSQL Prisma schema with `Role` enum, `Role[]`, availability flags, PostGIS `geography(Point,4326)` fields and seed data for the Hyderabad -> Srisailam demo
-- `apps/api/prisma/postgis.sql`: PostGIS extension and GiST indexes
-- `apps/mobile`: Expo-oriented role selector, React Navigation role stacks, Socket.io availability helper and `expo-location` helper for 5-second driver GPS streaming while status is `DRIVING`
+- `apps/api`: Express + Socket.io TypeScript backend using the shared Prisma/PostgreSQL schema. It supports auth, session-role selection, passenger/goods matching, availability toggles, trip-state transitions, driver GPS streaming, internal realtime emits and upload metadata.
+- `apps/api/prisma/postgis.sql`: PostGIS extension/index SQL for manually managed databases; the checked-in Prisma migration creates the PostGIS extension and required tables/indexes.
+- `apps/mobile`: Expo-oriented role selector, role-keyed navigation stacks, passenger/driver/goods screens, Socket.io route updates and `expo-location` GPS streaming every 5 seconds while status is `DRIVING`.
 
-These scaffolds are intentionally excluded from the root Next.js build until their dependencies are installed. `psql` was not available on this machine and `.env` currently points at SQLite, so the PostgreSQL migration/`psql backhaul` verification step is not run in this local workspace yet.
+Run the web and API together during development:
+
+```bash
+pnpm dev
+pnpm dev:api
+```
+
+Set `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` to the API origin, for example `http://localhost:4000`.
 
 ## How dynamic routes work
 
@@ -262,27 +289,28 @@ Both the UI and server prevent public trip posting until the Captain and selecte
 
 Capacity and allowed goods are stored separately; unsafe service mixing is never inferred from a vehicle name.
 
-## Mock/free fallbacks
+## File storage and mock/free fallbacks
 
 - OTP: local code `123456`
 - Payment: cash, mock UPI or mock card records; Razorpay environment variables are reserved
 - Tracking: timer-based movement between stored booking coordinates
-- Uploads: `public/uploads`; Cloudinary variables are reserved
+- Uploads: local filesystem by default via `UPLOAD_DRIVER=local` and `UPLOAD_DIR=public/uploads`
+- Production storage: configure `UPLOAD_DRIVER=s3` or `UPLOAD_DRIVER=supabase` with `PUBLIC_UPLOAD_BASE_URL` and provider credentials; the API routes already call the storage abstraction instead of writing files directly
 - Maps/search: Leaflet, OpenStreetMap and Nominatim
 - Email/SMS: in-app mock confirmation
 
 Do not use these mock mechanisms as production security controls.
 
-## Database migration to PostgreSQL/Supabase
+## PostgreSQL/PostGIS production database
 
-For production, change the Prisma datasource provider to `postgresql`, set a PostgreSQL `DATABASE_URL`, convert JSON-encoded list strings to PostgreSQL `Json` fields if desired, then run:
+The Prisma datasource is now PostgreSQL, and geospatial fields are modeled with PostGIS `geography(Point,4326)`. For a fresh local database:
 
 ```bash
-pnpm prisma migrate dev --name init
-pnpm db:seed
+docker compose up -d postgres
+pnpm db:setup
 ```
 
-Use private object storage for documents, database migrations rather than `db push`, rate limiting, audited admin actions, encrypted sensitive fields and a queue for notifications.
+For production, set a managed PostgreSQL/PostGIS `DATABASE_URL`, run `pnpm db:deploy`, and keep `JWT_SECRET`, API URLs and upload provider credentials in the platform environment.
 
 ## Environment variables
 
@@ -291,10 +319,9 @@ Copy `.env.example`. The app only requires `DATABASE_URL` and `JWT_SECRET` local
 ## Future improvements
 
 - OSRM/Google route polylines and turn-aware point-to-polyline distance
-- WebSocket/GPS live tracking and reliable trip state transitions
 - Real OTP delivery and account recovery
 - Razorpay payment intents, refunds and Captain settlement ledger
-- Cloudinary/Supabase signed uploads and malware scanning
+- Signed object-storage uploads and malware scanning
 - Document OCR, permit expiry alerts and audit history
 - Stronger session revocation, rate limiting, CSRF protection and device verification
 - Merchant teams, recurring loads, notifications and advanced route optimization
@@ -304,7 +331,7 @@ Copy `.env.example`. The app only requires `DATABASE_URL` and `JWT_SECRET` local
 
 The checked-in project has been verified with:
 
-- `pnpm test` — 4 engine tests passing
-- `pnpm build` — 52 pages/API routes compiled and production build completed
-- runtime browser check — landing page, Leaflet initialization and RouteMate demo login/dashboard
-- runtime API check — dynamic passenger match, goods nearby-route match, computed fares and database-ranked popular routes
+- `pnpm test` - 13 engine/auth/booking/protected-route tests passing
+- `pnpm build` - 54 pages/API routes compiled and production build completed
+- direct `apps/api` TypeScript compile - Express + Socket.io backend compiles
+- PostGIS smoke tests require a running database: `docker compose up -d postgres`, then `pnpm db:setup`, then `pnpm smoke`

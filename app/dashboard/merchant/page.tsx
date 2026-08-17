@@ -6,7 +6,7 @@ export default function Page({ searchParams }: { searchParams: { notice?: string
   return (
     <>
       <DashboardNotice notice={searchParams.notice} />
-      <RequireRole roles={["LOADMATE"]}>
+      <RequireRole roles={["MERCHANT"]}>
         <MerchantDashboard />
       </RequireRole>
     </>
